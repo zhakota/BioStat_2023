@@ -1,0 +1,34 @@
+---
+title: "StartLesson"
+author: "Dmitrii"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+
+```
+
+```{r}
+df <- read_tsv("data_tsv.tsv")
+df <- read.delim("GitHub/data_tsv.tsv")
+
+df <- read.csv("data/interim/df.csv")
+
+df <- read_tsv("https://stepik.org/media/attachments/course/122402/data_tsv.tsv")
+
+
+write_tsv(df, "GitHub/df_tsv.tsv")
+write_rds(df, "data/raw/df.rds")
+
+write.csv(df, "df.csv")
+
+```
+
+```{r}
+
+```
+
