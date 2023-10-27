@@ -1,0 +1,774 @@
+---
+title: "automatization_notebook"
+output: word_document
+date: "`r Sys.Date()`"
+---
+
+#Превичная нстройка
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(flextable)
+
+library(tidyverse)
+
+laconic_p <- function(x){
+  
+  if_else(is.na(x) | is.nan(x), return("> 0.05"), if_else(x < 0.05, return("<0.05"), return(as.character(round(x, 3)))))
+  
+}
+```
+
+# Чтение данных
+
+В вашем варианте нужно использовать датасеты cardio_train_big или cardio_train_not_too_big.
+
+```{r}
+# df <- read_delim("data/raw/cardio_train_big.csv",
+#     delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+df <- read_delim("data/raw/cardio_train_not_too_big.csv",
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+
+
+```
+
+# Выведите общее описание данных
+
+```{r}
+glimpse(df)
+summary(df)
+
+```
+
+# Очистка данных
+
+1)  Уберите переменные, в которых пропущенных значений больше 20% или уберите субъектов со слишком большим количеством пропущенных значений. Или совместите оба варианта. Напишите обоснование, почему вы выбрали тот или иной вариант:
+
+**Обоснование**: Нет пропусков в cardio_train_big.csv или cardio_train_not_too_big.csv"
+
+2)  Переименуйте переменные в человекочитаемый вид (что делать с пробелами в названиях?);
+
+3)  В соответствии с описанием данных приведите переменные к нужному типу (numeric или factor);
+
+4)  Отсортируйте данные по возрасту по убыванию;
+
+5)  Сохраните в файл outliers.csv субъектов, которые являются выбросами (например, по правилу трёх сигм) --- это необязательное задание со звёздочкой;
+
+6)  Присвойте получившийся датасет переменной "cleaned_data".
+
+```{r}
+#1 Смотрим количество пропусков в каждом признаке# which(is.na(df))
+df %>% is.na() %>% colSums()
+#Нет пропущенных значений
+
+#2 Переименовываем в человекочитаемые названия
+df1 <- df %>% 
+rename(Age = age, 
+       Height = height,
+       Weight = weight,
+       Gender = gender,
+       "Systolic blood pressure" = ap_hi, 
+       "Diastolic blood pressure" = ap_lo,
+       Cholesterol = cholesterol,
+       Glucose = gluc,
+       Smoking = smoke,
+       "Alcohol intake" = alco,
+       "Physical activity" = active,
+       "Presence or absence of cardiovascular disease" = cardio
+       )
+
+# df1 <- df1 %>%
+#   mutate(`Gender` = recode(`Gender`, `1` ="male", `2` ="female"))
+# 
+# df1 <- df1 %>%
+#   mutate(`Cholesterol` = recode(`Cholesterol`, `1` = "normal", `2` = "above normal", `3` = "well above normal"))
+# 
+# df1 <- df1 %>%
+#   mutate(`Glucose` = recode(`Glucose`, `1` = "normal", `2` = "above normal", `3` = "well above normal"))
+# 
+# df1 <- df1 %>%
+#   mutate(`Smoking` = recode(`Smoking`, `0`="no", `1`="yes"))
+# 
+# df1 <- df1 %>%
+#   mutate(`Alcohol intake` = recode(`Alcohol intake`, `0`="no", `1`="yes"))
+# 
+# df1 <- df1 %>%
+#   mutate(`Physical activity` = recode(`Physical activity`, `0`="no", `1`="yes"))
+# 
+# df1 <- df1 %>%
+#   mutate(`Presence or absence of cardiovascular disease` = recode(`Physical activity`, `0`="no", `1`="yes"))
+
+
+#3 Привести к факторам или числам
+factors_auto <- df1 %>% select_if(function(x) {all(unique(x) %in% c(0, 1, 2, 3, NA))}) %>% colnames()
+factors_list <- c("id")
+
+df1 %>%  mutate(across(
+  c(all_of(factors_auto), all_of(factors_list)), as.factor
+)) -> df1
+
+glimpse(df1)
+
+#4 Сортируем по убыванию по признаку возраст
+df1 <- df1 %>%
+  arrange(desc(Age))
+
+# 5) Сохраните в файл outliers.csv субъектов, которые являются выбросами (например, по правилу трёх сигм) — это необязательное задание со звёздочкой;
+boxplot(df1$Age)
+boxplot(df1$Height)
+boxplot(df1$Weight)
+boxplot(df1$`Systolic blood pressure`)
+boxplot(df1$`Diastolic blood pressure`)
+
+
+out_Age <- df1 %>%
+  filter(Age < quantile(Age, 0.25) - 1.5*IQR(Age) | Age > quantile(Age, 0.75) + 1.5*IQR(Age))
+
+out_Height <- df1 %>%
+  filter(Height < quantile(Height, 0.25) - 1.5*IQR(Height) | Height > quantile(Height, 0.75) + 1.5*IQR(Height))
+
+out_Weight <- df1 %>%
+  filter(Weight < quantile(Weight, 0.25) - 1.5*IQR(Weight) | Weight > quantile(Weight, 0.75) + 1.5*IQR(Weight))
+
+out_SBP <- df1 %>%
+  filter(`Systolic blood pressure` < quantile(`Systolic blood pressure`, 0.25) - 1.5*IQR(`Systolic blood pressure`) | `Systolic blood pressure` > quantile(`Systolic blood pressure`, 0.75) + 1.5*IQR(`Systolic blood pressure`))
+
+out_DBP <- df1 %>%
+  filter(`Diastolic blood pressure` < quantile(`Diastolic blood pressure`, 0.25) - 1.5*IQR(`Diastolic blood pressure`) | `Diastolic blood pressure` > quantile(`Diastolic blood pressure`, 0.75) + 1.5*IQR(`Diastolic blood pressure`))
+
+outliers <- bind_rows(out_Age, out_Height, out_Weight, out_SBP, out_DBP)
+
+
+ write.csv(outliers, "outliers.csv")
+
+# Поиск выбросов по 1.5*IQR и удаление
+outliers2 <- df1 %>% 
+  mutate(Age = ifelse(Age > quantile(Age, 0.75, na.rm = TRUE) + 1.5*IQR(Age, na.rm=TRUE) | Age < quantile(Age, 0.25, na.rm = TRUE) - 1.5*IQR(Age, na.rm= TRUE), NA, Age))
+
+outliers2 <- outliers2 %>% 
+  mutate(Age = ifelse(Height > quantile(Height, 0.75, na.rm = TRUE) + 1.5*IQR(Height, na.rm=TRUE) | Height < quantile(Height, 0.25, na.rm = TRUE) - 1.5*IQR(Height, na.rm= TRUE), NA, Height))
+
+outliers2 <- outliers2 %>% 
+  mutate(Weight = ifelse(Weight > quantile(Weight, 0.75, na.rm = TRUE) + 1.5*IQR(Weight, na.rm=TRUE) | Weight < quantile(Weight, 0.25, na.rm = TRUE) - 1.5*IQR(Weight, na.rm= TRUE), NA, Weight))
+
+outliers2 <- outliers2 %>% 
+  mutate(`Systolic blood pressure` = ifelse(`Systolic blood pressure` > quantile(`Systolic blood pressure`, 0.75, na.rm = TRUE) + 1.5*IQR(`Systolic blood pressure`, na.rm=TRUE) | `Systolic blood pressure` < quantile(`Systolic blood pressure`, 0.25, na.rm = TRUE) - 1.5*IQR(Weight, na.rm= TRUE), NA, `Systolic blood pressure`))
+
+outliers2 <- outliers2 %>% 
+  mutate(`Diastolic blood pressure` = ifelse(`Diastolic blood pressure` > quantile(`Diastolic blood pressure`, 0.75, na.rm = TRUE) + 1.5*IQR(`Diastolic blood pressure`, na.rm=TRUE) | `Diastolic blood pressure` < quantile(`Diastolic blood pressure`, 0.25, na.rm = TRUE) - 1.5*IQR(`Diastolic blood pressure`, na.rm= TRUE), NA, `Diastolic blood pressure`))
+
+# Проверяем ещё раз на выбросы
+boxplot(outliers2$Age)
+boxplot(outliers2$Height)
+boxplot(outliers2$Weight)
+boxplot(outliers2$`Systolic blood pressure`)
+boxplot(outliers2$`Diastolic blood pressure`)
+
+outliers2 %>% is.na() %>% colSums()
+
+outliers2 <- drop_na(outliers2)
+
+outliers2 %>% is.na() %>% colSums()
+
+# outliers2 <- df1 %>% 
+#   dplyr::filter(Age == ifelse(Age > quantile(Age, 0.75, na.rm = TRUE) + 1.5*IQR(Age, na.rm=TRUE) | Age < quantile(Age, 0.25, na.rm = TRUE) - 1.5*IQR(Age, na.rm= TRUE), NA, Age))
+
+# 6) Присвойте получившийся датасет переменной "cleaned_data".
+cleaned_data <- outliers2
+
+write.csv(cleaned_data, "cleaned_data.csv", row.names = FALSE)
+
+rm(out_Age, out_DBP, out_Height, out_SBP, out_Weight, outliers2, outliers, df, df1)
+```
+
+# Сколько осталось переменных?
+
+```{r}
+glimpse(cleaned_data)
+
+# 13 переменных
+
+```
+
+# Сколько осталось случаев?
+
+```{r}
+
+# 312 случаев
+
+```
+
+# Есть ли в данных идентичные строки?
+
+```{r}
+# Дубликатов данных нет
+# duplicated(cleaned_data)
+
+uniq <- cleaned_data %>% 
+  distinct()
+
+
+```
+
+# Сколько всего переменных с пропущенными значениями в данных и сколько пропущенных точек в каждой такой переменной?
+
+```{r}
+rm(uniq)
+cleaned_data %>% is.na() %>% colSums()
+#Нет пропущенных значений
+
+```
+
+# Описательные статистики
+
+## Количественные переменные
+
+1)  Рассчитайте для всех количественных переменных для каждой группы (наличие или отсутствие сердечно-сосудистых заболеваний):
+
+1.1) Количество значений;
+
+1.2) Количество пропущенных значений;
+
+1.3) Среднее;
+
+1.4) Медиану;
+
+1.5) Стандартное отклонение;
+
+1.6) 25% квантиль и 75% квантиль;
+
+1.7) Интерквартильный размах;
+
+1.8) Минимум;
+
+1.9) Максимум;
+
+1.10) 95% ДИ для среднего - задание со звёздочкой.
+
+<!-- Повторил пример из интенсива -->
+
+```{r}
+# rm(list = ls())
+# cleaned_data <- read_csv("cleaned_data.csv")
+
+
+
+statistics <- list(
+      `Количество значений` = ~length(.x) %>%  as.character(),
+      # `Количество (есть данные)` = ~sum(!is.na(.x)),
+      `Количество пропущенных значений` = ~sum(is.na(.x)) %>%  as.character(),
+      `Среднее` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", mean(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `Медиана` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", median(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `Стандартное отклонение` = ~ifelse(sum(!is.na(.x)) < 3, "Н/П*", sd(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `25% квантиль и 75% квантиль` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", paste0(quantile(.x, 0.25, na.rm = TRUE) %>% round(2), " - ", quantile(.x, 0.75, na.rm = TRUE) %>% round(2))) %>%  as.character(),
+      `Минимум` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", paste0(min(.x, na.rm = TRUE) %>% round(2))) %>%  as.character(),
+      `Максимум` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", paste0(max(.x, na.rm = TRUE) %>% round(2))) %>%  as.character(),
+      `95% ДИ для среднего` = ~sd(.x, na.rm = TRUE) %>% round(2) %>% as.character()
+)
+
+
+cleaned_data %>% 
+  select(`Presence or absence of cardiovascular disease`, where(is.numeric)) %>%
+  group_by(`Presence or absence of cardiovascular disease`) %>%
+  summarise(across(where(is.numeric), statistics)) %>%
+  pivot_longer(!`Presence or absence of cardiovascular disease`) %>% 
+  separate(name, into = c("Переменная", "Статистика"), sep = "_") %>%
+  rename(`Значение` = value) %>%
+  flextable() %>% 
+  theme_box() %>% 
+  merge_v(c("Presence or absence of cardiovascular disease", "Переменная"))
+
+```
+
+## Категориальные переменные
+
+1)  Рассчитайте для всех категориальных переменных для каждой группы (наличие или отсутствие сердечно-сосудистых заболеваний):
+
+1.1) Абсолютное количество;
+
+1.2) Относительное количество внутри группы;
+
+1.3) 95% ДИ для доли внутри группы - задание со звёздочкой.
+
+<!-- Повторил пример из интенсива -->
+
+```{r}
+# rm(list = ls())
+# cleaned_data <- read_csv("cleaned_data.csv")
+
+# cleaned_data %>% 
+#   # select_if(!id & is.factor) %>% 
+#   select_if(pmap_lgl(list(., !grepl("id", names(.))), 
+#                       ~is.factor(..1) && ..2)) %>% 
+#   
+#   map(function(x) table(x))
+
+group_variable <- "Presence or absence of cardiovascular disease"
+variable <- "Glucose"
+# subdata <- cleaned_data
+
+make_cat_table_for_one_var <- function(variable, group_variable, cleaned_data) {
+  
+  make_binom_multinom <- function(temp_data, abs_frequency = "Абсолютное количество") {
+        if(sum(temp_data[[abs_frequency]]) == 0) {
+          return("Н/П*")
+        }
+  
+        if(length(temp_data[[abs_frequency]]) <= 2) {
+  
+          DescTools::BinomCI(temp_data[[abs_frequency]], sum(temp_data[[abs_frequency]]), conf.level = 0.95, method = "clopper-pearson", side = "two.sided") %>% 
+      round(2) %>% 
+      as_tibble() %>% 
+      select(-est) %>% 
+      unite("95% ДИ", lwr.ci, upr.ci, sep = ", ")  
+  
+        } else{
+        DescTools::MultinomCI(temp_data[[abs_frequency]], conf.level = 0.95, method = "sisonglaz", side = "two.sided") %>% 
+      round(2) %>% 
+      as_tibble() %>% 
+      select(-est) %>% 
+      unite("95% ДИ", lwr.ci, upr.ci, sep = ", ")  
+        }
+  
+      }
+
+  #####################################Тест Фише и  Хи квадрат##############################################
+  correct_test <- function(cleaned_data, group_variable, variable) {
+    cleaned_data %>% 
+      select(all_of(c(group_variable, variable))) %>% 
+      table() -> matrix_data
+  
+    if((sum(rowSums(matrix_data) > 0) >= 2) & (sum(colSums(matrix_data) > 0) >= 2)) {
+  
+      if (any(matrix_data < 5)) {
+        matrix_data %>% 
+        fisher.test(simulate.p.value = TRUE, B = 1000) %>% 
+        .$p.value %>% 
+        laconic_p() %>% 
+        paste0(" (f)") %>% 
+          return()
+  
+      } else{
+        matrix_data %>% 
+        chisq.test(simulate.p.value = TRUE, B = 1000) %>% 
+        .$p.value %>% 
+        laconic_p() %>%
+          paste0(" (x^2)") %>% 
+          return()
+  
+      }
+  
+  
+    } else{
+      return("Н/П*")
+    }
+  }
+
+  
+  #####################################Вывод результата################################################################################
+    cleaned_data %>% 
+      dplyr::select(all_of(c(group_variable, variable))) %>% 
+      count(.data[[group_variable]], .data[[variable]], .drop = FALSE, name = "Абсолютное количество") %>% 
+      dplyr::group_by(.data[[group_variable]]) %>% 
+        dplyr::mutate(`Относительное количество внутри группы` = (`Абсолютное количество` / sum (`Абсолютное количество`)) %>% round(4) %>% `*`(100) %>% str_c("%")) %>% 
+      ungroup() -> temp_data
+  
+  
+    temp_data %>% 
+      split(~ temp_data[[group_variable]]) %>% 
+      map_dfr(function(cleaned_data) make_binom_multinom(cleaned_data, "Абсолютное количество")) %>% 
+      bind_cols(temp_data, .) %>% 
+      mutate (`p-value` = correct_test(cleaned_data, group_variable, variable)) %>% 
+      rename("Value" = variable, "Group" = group_variable)
+  
+}
+
+cleaned_data %>% 
+  select(!c(id, group_variable) & where(is.factor)) %>%
+  names() -> variable_names
+
+variable_names %>% 
+  set_names() %>% 
+  map(function(variable) make_cat_table_for_one_var(variable, group_variable, cleaned_data)) %>% 
+  enframe() %>% 
+  unnest(cols = value) %>% 
+  rename("Variable" = name) %>% 
+  flextable() %>% 
+  theme_box %>% 
+  merge_v(c("Variable", "Group")) %>% 
+  merge_v("Variable", target = "p-value")
+
+```
+
+#Отдельно для каждого признака из предзанятия из курса на stepic
+
+```{r}
+cleaned_data %>% 
+  select(`Presence or absence of cardiovascular disease`, where(is.factor)) %>%
+  mutate(`Gender` = `Gender` %>% as.factor() %>% replace_na("Нет данных") %>% as.factor()) %>% 
+  count(`Presence or absence of cardiovascular disease`, `Gender`) %>% 
+  group_by(`Presence or absence of cardiovascular disease`) %>%
+  mutate(`Процент по группе` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%")) %>% 
+  ungroup() %>% 
+  mutate(`Процент по выборке` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%"))
+
+
+
+cleaned_data %>% 
+  select(`Presence or absence of cardiovascular disease`, where(is.factor)) %>%
+  mutate(`Cholesterol` = `Cholesterol` %>% as.factor() %>% replace_na("Нет данных") %>% as.factor()) %>% 
+  count(`Presence or absence of cardiovascular disease`, `Cholesterol`) %>% 
+  group_by(`Presence or absence of cardiovascular disease`) %>%
+  mutate(`Процент по группе` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%")) %>% 
+  ungroup() %>% 
+  mutate(`Процент по выборке` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%"))
+
+cleaned_data %>% 
+  select(`Presence or absence of cardiovascular disease`, where(is.factor)) %>%
+  mutate(`Glucose` = `Glucose` %>% as.factor() %>% replace_na("Нет данных") %>% as.factor()) %>% 
+  count(`Presence or absence of cardiovascular disease`, `Glucose`) %>% 
+  group_by(`Presence or absence of cardiovascular disease`) %>%
+  mutate(`Процент по группе` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%")) %>% 
+  ungroup() %>% 
+  mutate(`Процент по выборке` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%"))
+
+cleaned_data %>% 
+  select(`Presence or absence of cardiovascular disease`, where(is.factor)) %>%
+  mutate(`Smoking` = `Smoking` %>% as.factor() %>% replace_na("Нет данных") %>% as.factor()) %>% 
+  count(`Presence or absence of cardiovascular disease`, `Smoking`) %>% 
+  group_by(`Presence or absence of cardiovascular disease`) %>%
+  mutate(`Процент по группе` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%")) %>% 
+  ungroup() %>% 
+  mutate(`Процент по выборке` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%"))
+
+
+cleaned_data %>% 
+  select(`Presence or absence of cardiovascular disease`, where(is.factor)) %>%
+  mutate(`Alcohol_intake` = `Alcohol intake` %>% as.factor() %>% replace_na("Нет данных") %>% as.factor()) %>% 
+  count(`Presence or absence of cardiovascular disease`, `Alcohol_intake`) %>% 
+  group_by(`Presence or absence of cardiovascular disease`) %>%
+  mutate(`Процент по группе` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%")) %>% 
+  ungroup() %>% 
+  mutate(`Процент по выборке` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%"))
+
+
+cleaned_data %>% 
+  select(`Presence or absence of cardiovascular disease`, where(is.factor)) %>%
+  mutate(`Physical activity` = `Physical activity` %>% as.factor() %>% replace_na("Нет данных") %>% as.factor()) %>% 
+  count(`Presence or absence of cardiovascular disease`, `Physical activity`) %>% 
+  group_by(`Presence or absence of cardiovascular disease`) %>%
+  mutate(`Процент по группе` = (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%"))
+  
+
+
+# cleaned_data %>% 
+#   select(`Presence or absence of cardiovascular disease`, where(is.factor)) %>%
+#   group_by(`Presence or absence of cardiovascular disease`) %>%
+#   summarise(across(where(is.factor), (n/sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%"))) %>%
+#   pivot_longer(!`Presence or absence of cardiovascular disease`) %>% 
+#   separate(name, into = c("Переменная", "Статистика"), sep = "_") %>%
+#   rename(`Значение` = value) %>%
+#   flextable() %>% 
+#   theme_box() %>% 
+#   merge_v(c("Presence or absence of cardiovascular disease", "Переменная"))
+  
+```
+
+# Визуализация
+
+## Количественные переменные
+
+1)  Для каждой количественной переменной сделайте боксплоты по группам. Расположите их либо на отдельных рисунках, либо на одном, но читаемо;
+
+2)  Наложите на боксплоты beeplots - задание со звёздочкой.
+
+3)  Раскрасьте боксплоты с помощью библиотеки RColorBrewer.
+
+```{r}
+
+
+library(ggbeeswarm)
+library(RColorBrewer)
+library(ggpubr)
+
+Age <- cleaned_data %>% 
+  ggplot(mapping = aes(x = `Presence or absence of cardiovascular disease`, y = Age)) +
+  geom_boxplot(aes(fill = `Presence or absence of cardiovascular disease`)) +
+  geom_quasirandom(size = 3, alpha = 0.2) +
+  scale_fill_brewer(palette = "Dark2") + 
+  theme_minimal() +
+  theme(legend.position = "none")
+  
+
+Height <- cleaned_data %>% 
+  ggplot(mapping = aes(x = `Presence or absence of cardiovascular disease`, y = Height)) +
+  geom_boxplot(aes(fill = `Presence or absence of cardiovascular disease`)) +
+  geom_quasirandom(size = 3, alpha = 0.2) +
+  scale_fill_brewer(palette = "Dark2") + 
+  theme_minimal() +
+  theme(legend.position = "none")
+
+Weight <- cleaned_data %>% 
+  ggplot(mapping = aes(x = `Presence or absence of cardiovascular disease`, y = Weight)) +
+  geom_boxplot(aes(fill = `Presence or absence of cardiovascular disease`)) +
+  geom_quasirandom(size = 3, alpha = 0.2) +
+  scale_fill_brewer(palette = "Dark2") + 
+  theme_minimal() +
+  theme(legend.position = "none")
+
+SBP <- cleaned_data %>% 
+  ggplot(mapping = aes(x = `Presence or absence of cardiovascular disease`, y = `Systolic blood pressure`)) +
+  geom_boxplot(aes(fill = `Presence or absence of cardiovascular disease`)) +
+  geom_quasirandom(size = 3, alpha = 0.2) +
+  scale_fill_brewer(palette = "Dark2") + 
+  theme_minimal() +
+  theme(legend.position = "none")
+
+DBP <- cleaned_data %>% 
+  ggplot(mapping = aes(x = `Presence or absence of cardiovascular disease`, y = `Diastolic blood pressure`)) +
+  geom_boxplot(aes(fill = `Presence or absence of cardiovascular disease`)) +
+  geom_quasirandom(size = 3, alpha = 0.2) +
+  scale_fill_brewer(palette = "Dark2") + 
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Объединяем в одну картинку
+ggarrange(Age, Height, Weight, SBP, DBP,
+                    labels = c("A", "B", "C", "D", "E"),
+                    ncol = 5, nrow = 1)
+
+
+# Попытка сделать черз автоопределения количественного признака списоком
+# num_auto <- cleaned_data %>% select_if(function(x) {all(is.numeric(x))}) %>% colnames()
+# 
+# cleaned_data %>% 
+#   ggplot(mapping = aes(x = `Presence or absence of cardiovascular disease`, y = num_auto)) +
+#   geom_boxplot()
+
+#Нашёл такое решение
+# https://community.rstudio.com/t/merging-or-combining-few-boxplots-into-one/143521/2
+#Не смог разобраться как убрать дубли подписей признаков и сделать группировку
+cleaned_data %>%
+  # group_by(`Presence or absence of cardiovascular disease`) %>% 
+  select(where(is.numeric)) %>% 
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value") %>% 
+  ggplot(aes(x = Variable, y = Value, fill = Variable)) +
+  geom_boxplot() +
+  geom_quasirandom(size = 2, alpha = 0.2) +
+  scale_fill_brewer(palette = "Dark2") + 
+  theme_minimal() +
+  theme(legend.position = "top") +
+  facet_wrap(~ Variable, scales = "free")
+
+rm(Age, Height, Weight, SBP, DBP)
+```
+
+## Категориальные переменные
+
+1)  Сделайте подходящие визуализации категориальных переменных. Обоснуйте, почему выбрали именно этот тип.
+
+```{r}
+# Данные сгруппированы по признаку Presence or absence of cardiovascular disease как в предыдущих заданиях. Заполнение столбцов показывает распределение признака для каждой группы Presence or absence of cardiovascular disease.
+
+Gender <- cleaned_data %>% 
+ggplot( aes(
+    x = `Presence or absence of cardiovascular disease`,
+    fill = Gender
+  )) +
+  geom_bar()
+
+Cholesterol <- cleaned_data %>% 
+ggplot( aes(
+    x = `Presence or absence of cardiovascular disease`,
+    fill = Cholesterol
+  )) +
+  geom_bar()
+
+
+Glucose <- cleaned_data %>% 
+ggplot( aes(
+    x = `Presence or absence of cardiovascular disease`,
+    fill = Glucose
+  )) +
+  geom_bar()
+
+Smoking <- cleaned_data %>% 
+ggplot( aes(
+    x = `Presence or absence of cardiovascular disease`,
+    fill = Smoking
+  )) +
+  geom_bar()
+
+Alcohol <- cleaned_data %>% 
+ggplot( aes(
+    x = `Presence or absence of cardiovascular disease`,
+    fill = `Alcohol intake`
+  )) +
+  geom_bar()
+
+Physical <- cleaned_data %>% 
+ggplot( aes(
+    x = `Presence or absence of cardiovascular disease`,
+    fill = `Physical activity`
+  )) +
+  geom_bar()
+
+ggarrange(Gender, Cholesterol, Glucose, Smoking, Alcohol, Physical,
+                    # labels = c("A", "B", "C", "D", "E", "F"),
+                    ncol = 3, nrow = 2) 
+
+rm(Gender, Cholesterol, Glucose, Smoking, Alcohol, Physical)
+
+```
+
+# Статистические оценки
+
+## Проверка на нормальность
+
+1)  Оцените каждую переменную на соответствие нормальному распределению с помощью теста Шапиро-Уилка. Какие из переменных являются нормальными и как как вы это поняли?
+
+```{r}
+#Поигрался с chaGPT
+cleaned_data %>% 
+  select_if(is.numeric) %>% # Select only numeric variables
+  gather() %>% # Convert to long format
+  group_by(key) %>% # Group by variable name !!! key передали из предыдущего пайка. Как заменить на другое название колонки не разобрался пока!!!
+  summarise(
+    shapiro_p = shapiro.test(value)$p.value, # Shapiro-Wilk test p-value
+    ks_p = ks.test(value, "pnorm")$p.value # Kolmogorov-Smirnov test p-value
+  ) %>% 
+  mutate(
+    shapiro_normal = ifelse(shapiro_p > 0.05, "Yes", "No"), # Normality based on Shapiro-Wilk test
+    ks_normal = ifelse(ks_p > 0.05, "Yes", "No") # Normality based on Kolmogorov-Smirnov test
+  ) 
+
+# Все признаки не демонстрируют нормальное распределение
+```
+
+2)  Постройте для каждой количественной переменной QQ-плот. Отличаются ли выводы от теста Шапиро-Уилка? Какой метод вы бы предпочли и почему?
+
+```{r}
+# cleaned_data %>% 
+#   select_if(is.numeric) %>% 
+#   ggplot() + 
+#   geom_qq() +
+#   stat_qq_line() +
+#   facet_grid()
+
+cleaned_data %>% 
+  # slect_if(is.numeric())
+  ggplot(aes(sample = Age)) + 
+  geom_qq() +
+  stat_qq_line()
+
+cleaned_data %>% 
+  # slect_if(is.numeric())
+  ggplot(aes(sample = Height)) + 
+  geom_qq() +
+  stat_qq_line()
+
+cleaned_data %>% 
+  # slect_if(is.numeric())
+  ggplot(aes(sample = Weight)) + 
+  geom_qq() +
+  stat_qq_line()
+
+
+cleaned_data %>% 
+  # slect_if(is.numeric())
+  ggplot(aes(sample = `Systolic blood pressure`)) + 
+  geom_qq() +
+  stat_qq_line()
+
+cleaned_data %>% 
+  # slect_if(is.numeric())
+  ggplot(aes(sample = `Diastolic blood pressure`)) + 
+  geom_qq() +
+  stat_qq_line()
+
+# Более универсальный тест и простой для интерпретации тест Шапиро-Уилко
+```
+
+3)  Ниже напишите, какие ещё методы проверки на нормальность вы знаете и какие у них есть ограничения.
+
+**Гистограмма, плотность распределения, тест Колмагорова-Смирнова**
+
+## Сравнение групп
+
+1)  Сравните группы (переменная **cardio**) по каждой переменной (как количественной, так и категориальной). Для каждой переменной выберите нужный критерий и кратко обоснуйте его выбор в комментариях.
+
+```{r}
+# Т.к. все количественные признаки не имеют нормального распределения, то проводим анализ с помощью Манна-Уитни
+wilcox.test(Age ~ `Presence or absence of cardiovascular disease` , data = cleaned_data)
+wilcox.test(Height ~ `Presence or absence of cardiovascular disease` , data = cleaned_data)
+wilcox.test(Weight ~ `Presence or absence of cardiovascular disease` , data = cleaned_data)
+wilcox.test(`Systolic blood pressure` ~ `Presence or absence of cardiovascular disease` , data = cleaned_data)
+wilcox.test(`Diastolic blood pressure` ~ `Presence or absence of cardiovascular disease` , data = cleaned_data)
+
+# Формально можно ко всем применить тест Фишера, т.к. это позволяют вычислительные мощности. Если ожидаемая частоста в любой клетке больше или равна 5, то применяем Хи-квадрат. Во всех остальных случаях тест Пирсона.
+# С разбивкой на подгруппы рассчёты в задании с формированием таблицы категориальных данных.
+
+chisq.test(cleaned_data$Gender, cleaned_data$`Presence or absence of cardiovascular disease`)
+chisq.test(cleaned_data$Cholesterol, cleaned_data$`Presence or absence of cardiovascular disease`)
+chisq.test(cleaned_data$Glucose, cleaned_data$`Presence or absence of cardiovascular disease`)
+chisq.test(cleaned_data$Smoking, cleaned_data$`Presence or absence of cardiovascular disease`)
+chisq.test(cleaned_data$`Alcohol intake`, cleaned_data$`Presence or absence of cardiovascular disease`)
+chisq.test(cleaned_data$`Physical activity`, cleaned_data$`Presence or absence of cardiovascular disease`)
+
+
+# По поводу поправки на пножественное сравнение нашёл такое
+# https://rpubs.com/JLLJ/SPC12B
+
+```
+
+# Далее идут **необязательные** дополнительные задания, которые могут принести вам дополнительные баллы в том числе в случае ошибок в предыдущих
+
+## Корреляционный анализ
+
+1)  Создайте корреляционную матрицу с визуализацией и поправкой на множественные сравнения. Объясните, когда лучше использовать корреляционные матрицы и в чём минусы и плюсы корреляционных исследований.
+
+ОТВЕТ
+Корреляционный анализ позволяет определить направление и степень связи между переменными
+Ограничения:
+   1)наличие связи не тождественен причинно-следственныой связи
+   2)корреляционные исследования могут быть ограничены тем, что они не могут учитывать все возможные факторы, которые могут влиять на переменные.
+
+```{r}
+# library(corrr)
+library(ggcorrplot)
+
+cleaned_data %>% 
+  select(where(is.numeric)) -> df_corr
+  
+round(cor(df_corr), 3)
+
+ggcorrplot(cor(df_corr),
+  hc.order = TRUE,
+  type = "lower",
+  # insig = "blank",
+  lab = TRUE,
+  digits = 3,
+  p.mat = cor_pmat(df_corr)
+)
+
+
+```
+
+## Моделирование
+
+1)  Постройте регрессионную модель для переменной **cardio**. Опишите процесс построения
+
+Не понял, что означает: "Опишите процесс построения". Модель построена по формуле пытающей предсказать влияние факторов на признак **cardio**. Т.к. оцениваем много факторов влияния на **cardio**, то используем general lineal regression, которая является обобщением multipal lineal regression.
+
+```{r}
+model <- glm(`Presence or absence of cardiovascular disease` ~ Age + Gender + Height + Weight + `Systolic blood pressure` + `Diastolic blood pressure` + Cholesterol + Glucose + Smoking + `Alcohol intake` + `Physical activity`, data = cleaned_data, family = binomial())
+
+summary(model)
+
+plot(model)
+
+
+```
