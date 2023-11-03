@@ -1,0 +1,233 @@
+---
+title: "DataViz_HW1"
+author: "Dmitrii Zhakota"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(ggpubr)
+library(tidyverse)
+
+```
+
+#Загружаем данные
+```{r}
+df <- read_csv("insurance_cost.csv", 
+    col_types = cols(age = col_integer(), 
+        bmi = col_number(), children = col_integer(), 
+        charges = col_number()))
+
+str(df)
+summary(df)
+
+
+
+```
+
+#2. Выведите гистограммы всех нумерических переменных.
+```{r}
+df %>%
+  select_if(is.numeric) %>%
+  gather() %>%
+  ggplot(aes(value)) +
+  geom_histogram() +
+  facet_wrap(~key, scales = "free")
+
+```
+#3
+```{r}
+
+
+d <- df %>% 
+  ggplot(aes(x = charges)) +
+  geom_density() +
+  geom_vline(xintercept=mean(df$charges), linetype="dashed", 
+                color = "red", linewidth =2) +
+  annotate("text", x=19000, y=0.000001, label= "Среднее", color = "red") +
+  geom_vline(xintercept=median(df$charges), 
+                color = "blue", linewidth =2) +
+  annotate("text", x=3000, y=0.000001, label= "Медиана", color = "blue") +
+  xlab("Сумма выплат") +
+  ylab("Плотность распределения") +
+  theme_light()
+
+d
+
+```
+#4
+```{r}
+bxp1 <- ggplot(data = df, mapping = aes(x= sex, y = charges, fill = sex )) +
+      geom_boxplot() +
+      xlab("Пол") +
+      ylab("Сумма выплат") +
+      theme_bw()
+
+bxp2 <- ggplot(data = df, mapping = aes(x= smoker, y = charges, fill = smoker)) +
+      geom_boxplot() +
+      xlab("Курение") +
+      ylab("Сумма выплат") +
+      theme_pubclean()
+
+bxp3 <- ggplot(data = df, mapping = aes(x= region, y = charges, fill = region)) +
+      geom_boxplot() +
+      xlab("Регион") +
+      ylab("Сумма выплат") +
+      theme_cleveland()
+
+figure<- ggarrange(bxp1,bxp2,bxp3,
+          labels=c("a","b","c"),
+          ncol=3,nrow=1)
+  
+
+figure
+ 
+```
+
+#5
+```{r}
+plot <- ggarrange(d, figure,
+          labels=c("a","b"),
+          ncol=1,nrow=2)
+
+annotate_figure(plot, top = text_grob("Сумма выплат", color = "red", face = "bold", size = 14))
+
+```
+#6 Сделайте фасет графика из задания 3 по колонке region.
+```{r}
+df %>%
+  ggplot(aes(x = charges)) +
+  geom_density() +
+  geom_vline(xintercept=mean(df$charges), linetype="dashed", 
+                color = "red", linewidth =2) +
+  annotate("text", x=19000, y=0.000001, label= "Среднее", color = "red") +
+  geom_vline(xintercept=median(df$charges), 
+                color = "blue", linewidth =2) +
+  annotate("text", x=3000, y=0.000001, label= "Медиана", color = "blue") +
+  xlab("Сумма выплат") +
+  ylab("Плотность распределения") +
+  theme_minimal() +
+  facet_wrap(~region, scales = "free")
+```
+
+
+#7
+#Постройте scatter plot отношения переменных age и charges. Добавьте названия 
+осей, название графика и тему. Сделайте так, чтобы числа по оси Х отображались 
+14 шрифтом.
+```{r}
+ggplot(data = df, mapping = aes(x= age, y = charges)) +
+      geom_point() +
+      xlab("Возраст") +
+      ylab("Сумма выплат") +
+      ggtitle("Зависимость выплат от возраста") +
+      theme(axis.text.x = element_text(size = 14))
+
+
+```
+
+#8 Проведите линию тренда для предыдущего графика. 
+```{r}
+ggplot(data = df, mapping = aes(x= age, y = charges)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE) +
+      xlab("Возраст") +
+      ylab("Сумма выплат") +
+      ggtitle("Зависимость выплат от возраста") +
+      theme(axis.text.x = element_text(size = 14))
+
+```
+#9 Сделайте разбивку предыдущего графика по колонке smokers (у вас должно 
+получится две линии тренда для курящих и нет).
+```{r}
+ggplot(data = df, mapping = aes(x= age, y = charges, group = smoker)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE) +
+      xlab("Возраст") +
+      ylab("Сумма выплат") +
+      ggtitle("Зависимость выплат от возраста") +
+      theme(axis.text.x = element_text(size = 14))
+
+```
+#10 Заменить в гракаках из заданий 7-9 переменую age на переменную bmi.
+```{r}
+ggplot(data = df, mapping = aes(x= bmi, y = charges, group = smoker)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE) +
+      xlab("Индекс массы тела") +
+      ylab("Сумма выплат") +
+      ggtitle("Зависимость выплат от индекса массы тела") +
+      theme(axis.text.x = element_text(size = 14))
+```
+#11 Зависит ли индекс массы тела от пола?
+```{r}
+ggplot(data = df, mapping = aes(x = sex, y = bmi, fill = sex)) +
+      geom_boxplot(notch = TRUE, outlier.color = "red") +
+      xlab("Пол") +
+      ylab("Индекс массы тела") +
+      ggtitle("Зависимость индекса массы тела от пола") +
+      theme(axis.text.x = element_text(size = 14)) +
+      stat_compare_means(method = "t.test")
+
+#Boxplot показывает, что индекс массы тела не зависит от пола. Boxplot нагладно отображает описательную статистику: медиану, квартили, минимум и максимум. Также на графике отображаются выбросы. 
+
+
+```
+#12 
+```{r}
+ggplot(df, mapping = aes(x=as.factor(children))) +
+  geom_bar(color="blue", fill=rgb(0.1,0.4,0.5,0.7) ) +
+  xlab("Количество детей") +
+  ylab("Количество человек") +
+  ggtitle("Распределение количества детей")
+
+#Объяснение графика: на графике отображается распределение количества детей. Наибольшее количество людей не имеют детей. 
+#Столбчатая диаграмма наглядно отображает распределение категориальной переменной. 
+
+```
+#13 Распределение индекса массы тела по регионам
+```{r}
+library(hrbrthemes)
+library(viridis)
+
+# sample size
+sample_size = df %>% group_by(region) %>% summarize(num=n())
+
+df %>%
+  left_join(sample_size) %>%
+  mutate(myaxis = paste0(region, "\n", "n=", num)) %>%
+  ggplot(mapping = aes(x=region, y=bmi, fill=region)) +
+    geom_violin(width=1.4) +
+    geom_boxplot(width=0.1, color="grey", alpha=0.2) +
+    scale_fill_viridis(discrete = TRUE) +
+    theme_ipsum() +
+    theme(
+      legend.position="none",
+      plot.title = element_text(size=11)
+    ) +
+    ggtitle("Распределение индекса массы тела по регионам") +
+    xlab("")
+
+# Сочетение ящиков с усами и виол позволяет оценить описательную статистику и плотность распределения данных.
+```
+
+
+#14. Построить график отношения переменной ibm к логорифму переменной charges по возрастным группам (21-34, 35-49, больше 50). Для каждой возрастной группы построить отдельный график scatter plot. Точки geom_poit должны быть фиолетового цыета. Для каждой возрастной группы провести линию тренда разного цвета. Легенду с возрастными группами вывести снизу. 
+```{r}
+df %>% 
+  filter(age >= 21) %>%
+  mutate(age_group = case_when(age >= 21 & age <= 34 ~ "age: 21-34",
+                               age >= 35 & age <= 49 ~ "age: 35-49",
+                               age >= 50 ~ "age: 50+")) %>%
+  ggplot(aes(x = bmi, y = log(charges), group = age_group, color = age_group)) +
+  geom_point(color='black', fill='purple', alpha= 0.3, shape=21, size=2) +
+  geom_smooth(method = "lm") +
+  # xlab("Индекс массы тела") +
+  # ylab("Логарифм от выплат") +
+  ggtitle("Зависимость выплат от индекса массы тела по возрастным группам") +
+  facet_wrap(~age_group, scales = "free") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
