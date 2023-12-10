@@ -38,7 +38,7 @@ trauma <- trauma %>%
   mutate(Height = round(((Height*2.54)/100), digits = 2))
 
 trauma <- trauma %>% 
-  mutate(Weight = round(Weight/2.2, digits = 0))
+  mutate(Weight = round(Weight/2.2, digits = 1))
 
 
 
@@ -53,10 +53,7 @@ trauma %>%
 
 #Заменяем 0 на NA
 trauma <- trauma %>%
-    mutate(
-        FOUR = na_if(FOUR, 0),
-        GSC = na_if(GSC, 0)
-        )
+    mutate(Hb = na_if(Hb, 0))
 
 #Дополнительно  рассчитайте, у какого количества пациентов и в каком проценте случаев у пациентов был снижен уровень гемоглобина? Используйте следующие референтные значения (Мужчины:  13.5–16 г/дл, Женщины: 12–14 г/дл).
 
@@ -127,7 +124,35 @@ roc_curve_1 %>%
     coord_equal() +
     theme_bw() 
 
+# Отдельные графики по полу
+trauma_male <- trauma %>% 
+  dplyr::filter(Sex == "Male") 
+
+roc_curve_m <- roc(Death ~ Hb, 
+                   data = trauma_male,
+                   ci = T) 
+
+roc_curve_m %>% 
+    ggroc() + 
+    geom_abline(slope=1, intercept = 1, linetype = "dashed", alpha=0.7, color = "red") + 
+    coord_equal() +
+    theme_bw()   
+
+trauma_female <- trauma %>% 
+  dplyr::filter(Sex == "Famale") 
+
+roc_curve_f <- roc(Death ~ Hb, 
+                   data = trauma_male,
+                   ci = T) 
+
+roc_curve_f %>% 
+    ggroc() + 
+    geom_abline(slope=1, intercept = 1, linetype = "dashed", alpha=0.7, color = "red") + 
+    coord_equal() +
+    theme_bw()   
+
 #########################Altenative plot with CI######################################
+###https://programmersought.com/article/10166297014/##################################
 rocobj <- plot.roc(trauma$Death, trauma$Hb,
                    
                    main="Confidence intervals", percent=FALSE,
@@ -147,7 +172,7 @@ plot(ci(rocobj, of="thresholds", thresholds="best")) # add one threshol
 
 
 
-print(paste0(" Не понимаю вопрос: Чем может быть  обусловлена такая форма кривой? "))
+print(paste0("Сделал графики отдельно для полов для демонстрации бимодальности общего"))
 ```
 
 #4
@@ -192,13 +217,13 @@ print( paste("Специфичность для данного порогово�
 ```
 
 #6
-
 ```{r}
 # Какая из количественных переменных в датасете (включая рассчитанный вами ранее ИМТ) обладает наибольшей площадью под ROC-кривой? 
 trauma %>% select(is.numeric) %>% names()
 
 trauma %>% 
-    select("Age",
+    select("Death",
+           "Age",
            "Height",
            "Weight",
            "SBP",
@@ -208,23 +233,93 @@ trauma %>%
            "Hb",
            "Hb_low",
            "BMI") %>%
-    pivot_longer(cols = !Age) %>% 
+    pivot_longer(cols = !Death) %>% 
     
     group_by(name) %>% 
     
-    summarise(AUC = roc(Age, value, ci = T)$ci[2] %>% round(3),
-              AUC_LCL = roc(Age, value, ci = T)$ci[1] %>% round(3),
-              AUC_UCL = roc(Age, value, ci = T)$ci[3] %>% round(3)) %>% 
+    summarise(AUC = roc(Death, value, ci = T)$ci[2] %>% round(3),
+              AUC_LCL = roc(Death, value, ci = T)$ci[1] %>% round(3),
+              AUC_UCL = roc(Death, value, ci = T)$ci[3] %>% round(3)) %>% 
     dplyr::arrange(AUC) -> AUC_table
 
 AUC_table
 
-print(paste("Наибольшую площадь под кривой имеет признак гемоглобин (Hb):", AUC_table$AUC[9]))
+print(paste("Наибольшую площадь под кривой имеет признак FOUR:", AUC_table$AUC[10]))
 # Как вы можете интерпретировать это знание? 
-print(paste("Признак Hb является наиболее значимым для предсказания летального исхода в течение 24 часов."))
+print(paste("Признак FOUR является наиболее значимым для предсказания летального исхода в течение 24 часов."))
 
 # Какая количественная переменная имеет наименьшую площадь? 
-print(paste("Наименьшую площадь под кривой имеет признак FOUR:", AUC_table$AUC[1]))
+print(paste("Наименьшую площадь под кривой имеет признак Height:", AUC_table$AUC[1]))
 
 
 ```
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+roc_curve_Age <- roc(Death ~ Age, 
+                   data = trauma,
+                   ci = T) 
+
+roc_curve_Height <- roc(Death ~ Height, 
+                   data = trauma,
+                   ci = T) 
+
+roc_curve_Weight <- roc(Death ~ Weight,
+                   data = trauma,
+                   ci = T)
+
+roc_curve_SBP <- roc(Death ~ SBP,
+                   data = trauma,
+                   ci = T)
+
+roc_curve_DBP <- roc(Death ~ DBP,
+                   data = trauma,
+                   ci = T)
+
+roc_curve_FOUR <- roc(Death ~ FOUR,
+                   data = trauma,
+                   ci = T)
+
+roc_curve_GSC <- roc(Death ~ GSC,
+                   data = trauma,
+                   ci = T)
+
+roc_curve_Hb <- roc(Death ~ Hb,
+                   data = trauma,
+                   ci = T)
+
+roc_curve_Hb_low <- roc(Death ~ Hb_low,
+                   data = trauma,
+                   ci = T)
+
+roc_curve_BMI <- roc(Death ~ BMI,
+                   data = trauma,
+                   ci = T)
+
+
+print(paste0(" Площадь под ROC-кривой для Age составила: ", round(roc_curve_Age$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для Height составила: ", round(roc_curve_Height$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для Weight составила: ", round(roc_curve_Weight$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для SBP составила: ", round(roc_curve_SBP$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для DBP составила: ", round(roc_curve_DBP$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для FOUR составила: ", round(roc_curve_FOUR$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для GSC составила: ", round(roc_curve_GSC$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для Hb составила: ", round(roc_curve_Hb$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для Hb_low составила: ", round(roc_curve_Hb_low$auc, digits = 2)))
+print(paste0(" Площадь под ROC-кривой для BMI составила: ", round(roc_curve_BMI$auc, digits = 2)))
+
+
+print(paste("Наибольшую площадь под кривой имеет признак FOUR:", round(roc_curve_FOUR$auc, digits = 2)))
+# Как вы можете интерпретировать это знание? 
+print(paste("Признак FOUR является наиболее значимым для предсказания летального исхода в течение 24 часов."))
+
+# Какая количественная переменная имеет наименьшую площадь? 
+print(paste("Наименьшую площадь под кривой имеет признак BMI:", round(roc_curve_BMI$auc, digits = 2)))
+
+```
+
+
+
+
